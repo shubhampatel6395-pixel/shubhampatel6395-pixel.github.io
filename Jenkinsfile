@@ -1,29 +1,52 @@
 pipeline {
     agent any
 
+    environment {
+        DOCKERHUB_CREDS = credentials('dockerhub-creds')
+        IMAGE_NAME = 'shubhampatel6395/portfolio'
+        EC2_HOST = '13.201.29.157'
+        CONTAINER_NAME = 'portfolio-container'
+    }
+
     stages {
-        stage('Hello') {
+
+        stage('Build Docker Image') {
             steps {
-                echo 'Hello from Jenkins! Pipeline is working.'
+                sh 'docker build -t $IMAGE_NAME:latest .'
             }
         }
-        stage('Checkout Confirmation') {
+
+        stage('Push to Docker Hub') {
             steps {
-                echo 'Repo successfully checked out via Jenkins.'
-                sh 'ls -la'
+                sh '''
+                    echo $DOCKERHUB_CREDS_PSW | docker login -u $DOCKERHUB_CREDS_USR --password-stdin
+                    docker push $IMAGE_NAME:latest
+                '''
             }
         }
-        stage('System Info') {
+
+        stage('Deploy to EC2') {
             steps {
-                sh 'whoami'
-                sh 'date'
+                sshagent(['ec2-ssh-key']) {
+                    sh '''
+                        ssh -o StrictHostKeyChecking=no ec2-user@$EC2_HOST '
+                            docker login -u $DOCKERHUB_CREDS_USR -p $DOCKERHUB_CREDS_PSW &&
+                            docker pull $IMAGE_NAME:latest &&
+                            docker rm -f $CONTAINER_NAME || true &&
+                            docker run -d --name $CONTAINER_NAME -p 80:80 $IMAGE_NAME:latest
+                        '
+                    '''
+                }
             }
         }
     }
 
     post {
         success {
-            echo 'Test pipeline completed successfully!'
+            echo 'Deployment successful!'
+        }
+        failure {
+            echo 'Pipeline failed - check logs.'
         }
     }
 }
