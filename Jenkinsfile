@@ -4,7 +4,7 @@ pipeline {
     environment {
         DOCKERHUB_CREDS = credentials('dockerhub-creds')
         IMAGE_NAME = 'shubhampatel6395/portfolio'
-        EC2_HOST = '13.201.29.157'
+        EC2_HOST = '13.207.191.122'
         CONTAINER_NAME = 'portfolio-container'
     }
 
